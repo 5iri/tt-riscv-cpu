@@ -1,8 +1,9 @@
-// Tiny Tapeout top: 4x4 ternary systolic-array demo rendered directly to VGA.
+// Tiny Tapeout top: 8x8 ternary systolic-array demo rendered directly to VGA.
 //
+// The logical matrix is 8x8, but it is computed in two passes using a 4x8
+// systolic slice so the hardware only contains 32 live PEs.
 // ui_in[1:0] select one of four tiny matrix demos.
-// The systolic array runs after reset or when the mode changes.
-// VGA shows the 4x4 output matrix as a fullscreen heatmap:
+// VGA shows the 8x8 output matrix as a fullscreen heatmap:
 //   positive values -> green
 //   negative values -> red
 //   zero            -> blue
@@ -17,16 +18,28 @@ module tt_um_rv32_vga (
     input  wire       clk,
     input  wire       rst_n
 );
-    wire rst = ~rst_n;
-    localparam integer N  = 4;
+    localparam integer N = 8;
+    localparam integer SLICE_ROWS = 4;
     localparam integer DW = 2;
     localparam integer CW = 6;
+    localparam integer LAST_FEED_PHASE = (2 * N) - 1;
+    localparam integer CAPTURE_PHASE = 2 * N;
 
+    wire rst = ~rst_n;
     wire [1:0] mode = ui_in[1:0];
     wire vblank_unused;
     wire swap_unused;
 
-    // ---- VGA sync ----
+    reg clk_div2;
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            clk_div2 <= 1'b0;
+        else
+            clk_div2 <= ~clk_div2;
+    end
+
+    wire core_clk = clk_div2;
+
     wire hsync, vsync, vga_active;
     wire [9:0] vga_px;
     wire [8:0] vga_py;
@@ -34,7 +47,7 @@ module tt_um_rv32_vga (
     wire [5:0] canvas_y;
 
     vga_sync vga (
-        .clk(clk), .rst(rst),
+        .clk(core_clk), .rst(rst),
         .hsync(hsync), .vsync(vsync),
         .active(vga_active),
         .px(vga_px), .py(vga_py),
@@ -42,30 +55,81 @@ module tt_um_rv32_vga (
         .vblank(vblank_unused), .swap(swap_unused)
     );
 
-    // ---- Array control ----
-    reg  [1:0] mode_latched;
-    reg  [3:0] phase;
-    reg        restart_pending;
+    reg [1:0] mode_latched;
+    reg [4:0] phase;
+    reg       restart_pending;
+    reg       pass_sel;
 
-    wire clear = (phase == 4'd0);
-    wire feeding = (phase >= 4'd1) && (phase <= 4'd7);
-    wire [2:0] feed_t = phase[2:0] - 3'd1;
+    reg signed [N*CW-1:0] row_store0;
+    reg signed [N*CW-1:0] row_store1;
+    reg signed [N*CW-1:0] row_store2;
+    reg signed [N*CW-1:0] row_store3;
+    reg signed [N*CW-1:0] row_store4;
+    reg signed [N*CW-1:0] row_store5;
+    reg signed [N*CW-1:0] row_store6;
+    reg signed [N*CW-1:0] row_store7;
 
-    always @(posedge clk or posedge rst) begin
+    wire clear = (phase == 5'd0);
+    wire feeding = (phase >= 5'd1) && (phase <= LAST_FEED_PHASE[4:0]);
+    wire [3:0] feed_t = phase[3:0] - 4'd1;
+    wire [31:0] feed_t_ext = {28'b0, feed_t};
+    wire signed [SLICE_ROWS*DW-1:0] a_in_flat;
+    wire signed [N*DW-1:0] b_in_flat;
+    wire signed [SLICE_ROWS*N*CW-1:0] c_out_flat;
+
+    always @(posedge core_clk or posedge rst) begin
         if (rst) begin
-            mode_latched     <= 2'b00;
-            phase            <= 4'd0;
-            restart_pending  <= 1'b0;
+            mode_latched    <= 2'b00;
+            phase           <= 5'd0;
+            restart_pending <= 1'b0;
+            pass_sel        <= 1'b0;
+            row_store0 <= '0;
+            row_store1 <= '0;
+            row_store2 <= '0;
+            row_store3 <= '0;
+            row_store4 <= '0;
+            row_store5 <= '0;
+            row_store6 <= '0;
+            row_store7 <= '0;
         end else begin
             if (mode != mode_latched) begin
                 mode_latched    <= mode;
-                phase           <= 4'd0;
+                phase           <= 5'd0;
                 restart_pending <= 1'b1;
-            end else if (restart_pending) begin
-                phase           <= 4'd1;
-                restart_pending <= 1'b0;
-            end else if (phase < 4'd8) begin
-                phase <= phase + 4'd1;
+                pass_sel        <= 1'b0;
+                row_store0 <= '0;
+                row_store1 <= '0;
+                row_store2 <= '0;
+                row_store3 <= '0;
+                row_store4 <= '0;
+                row_store5 <= '0;
+                row_store6 <= '0;
+                row_store7 <= '0;
+            end else begin
+                if (phase == CAPTURE_PHASE[4:0]) begin
+                    if (!pass_sel) begin
+                        row_store0 <= c_out_flat[(0*N*CW) +: (N*CW)];
+                        row_store1 <= c_out_flat[(1*N*CW) +: (N*CW)];
+                        row_store2 <= c_out_flat[(2*N*CW) +: (N*CW)];
+                        row_store3 <= c_out_flat[(3*N*CW) +: (N*CW)];
+                    end else begin
+                        row_store4 <= c_out_flat[(0*N*CW) +: (N*CW)];
+                        row_store5 <= c_out_flat[(1*N*CW) +: (N*CW)];
+                        row_store6 <= c_out_flat[(2*N*CW) +: (N*CW)];
+                        row_store7 <= c_out_flat[(3*N*CW) +: (N*CW)];
+                    end
+                end
+
+                if (restart_pending) begin
+                    phase           <= 5'd1;
+                    restart_pending <= 1'b0;
+                end else if (phase < CAPTURE_PHASE[4:0]) begin
+                    phase <= phase + 5'd1;
+                end else if (!pass_sel) begin
+                    pass_sel        <= 1'b1;
+                    phase           <= 5'd0;
+                    restart_pending <= 1'b1;
+                end
             end
         end
     end
@@ -83,36 +147,19 @@ module tt_um_rv32_vga (
 
     function signed [DW-1:0] a_coeff;
         input [1:0] sel;
-        input [1:0] row;
-        input [1:0] col;
+        input integer row;
+        input integer col;
         begin
             a_coeff = 0;
             case (sel)
-                2'b00: begin
-                    if (row == col)
-                        a_coeff = ternary(1);
-                end
-                2'b01: begin
-                    if ((row + col) == 3)
-                        a_coeff = ternary(1);
-                end
-                2'b10: begin
-                    case ({row, col})
-                        4'b0000, 4'b0010, 4'b0101, 4'b0111,
-                        4'b1000, 4'b1010, 4'b1101, 4'b1111: a_coeff = ternary(1);
-                        4'b0001, 4'b0011, 4'b0100, 4'b0110,
-                        4'b1001, 4'b1011, 4'b1100, 4'b1110: a_coeff = ternary(-1);
-                        default: a_coeff = 0;
-                    endcase
-                end
-                2'b11: begin
-                    case ({row, col})
-                        4'b0000, 4'b0001, 4'b0010, 4'b0011,
-                        4'b0100, 4'b0110, 4'b1001, 4'b1011,
-                        4'b1100, 4'b1101, 4'b1110, 4'b1111: a_coeff = ternary(1);
-                        default: a_coeff = 0;
-                    endcase
-                end
+                2'b00: if (row == col)
+                    a_coeff = ternary(1);
+                2'b01: if ((row + col) == (N - 1))
+                    a_coeff = ternary(1);
+                2'b10: if (((row + col) & 1) == 0)
+                    a_coeff = ternary(1);
+                2'b11: if (row <= col)
+                    a_coeff = ternary(1);
                 default: a_coeff = 0;
             endcase
         end
@@ -120,32 +167,25 @@ module tt_um_rv32_vga (
 
     function signed [DW-1:0] b_coeff;
         input [1:0] sel;
-        input [1:0] row;
-        input [1:0] col;
+        input integer row;
+        input integer col;
         begin
             b_coeff = 0;
             case (sel)
                 2'b00, 2'b01: begin
-                    case ({row, col})
-                        4'b0000, 4'b0011, 4'b0101, 4'b0110,
-                        4'b1001, 4'b1010, 4'b1100, 4'b1111: b_coeff = ternary(1);
-                        4'b0010, 4'b0111, 4'b1000, 4'b1101: b_coeff = ternary(-1);
-                        default: b_coeff = 0;
-                    endcase
-                end
-                2'b10: begin
                     if (row == col)
                         b_coeff = ternary(1);
+                    else if ((row + col) == (N - 1))
+                        b_coeff = ternary(-1);
+                    else
+                        b_coeff = 0;
                 end
-                2'b11: begin
-                    case ({row, col})
-                        4'b0000, 4'b0010, 4'b0101, 4'b0111,
-                        4'b1000, 4'b1010, 4'b1101, 4'b1111: b_coeff = ternary(-1);
-                        4'b0001, 4'b0011, 4'b0100, 4'b0110,
-                        4'b1001, 4'b1011, 4'b1100, 4'b1110: b_coeff = ternary(1);
-                        default: b_coeff = 0;
-                    endcase
-                end
+                2'b10: if (row == col)
+                    b_coeff = ternary(1);
+                2'b11: if (((row + col) & 1) == 0)
+                    b_coeff = ternary(-1);
+                else
+                    b_coeff = ternary(1);
                 default: b_coeff = 0;
             endcase
         end
@@ -153,13 +193,15 @@ module tt_um_rv32_vga (
 
     function signed [DW-1:0] feed_a;
         input [1:0] sel;
-        input [1:0] row;
-        input [2:0] t;
+        input integer local_row;
+        input integer t;
+        integer global_row;
         integer k;
         begin
-            k = {29'b0, t} - {30'b0, row};
+            global_row = (pass_sel ? 4 : 0) + local_row;
+            k = t - global_row;
             if ((k >= 0) && (k < N))
-                feed_a = a_coeff(sel, row, k[1:0]);
+                feed_a = a_coeff(sel, global_row, k);
             else
                 feed_a = 0;
         end
@@ -167,37 +209,41 @@ module tt_um_rv32_vga (
 
     function signed [DW-1:0] feed_b;
         input [1:0] sel;
-        input [1:0] col;
-        input [2:0] t;
+        input integer col;
+        input integer t;
         integer k;
         begin
-            k = {29'b0, t} - {30'b0, col};
+            k = t - col;
             if ((k >= 0) && (k < N))
-                feed_b = b_coeff(sel, k[1:0], col);
+                feed_b = b_coeff(sel, k, col);
             else
                 feed_b = 0;
         end
     endfunction
 
-    wire signed [DW-1:0] a0 = feeding ? feed_a(mode_latched, 2'd0, feed_t) : '0;
-    wire signed [DW-1:0] a1 = feeding ? feed_a(mode_latched, 2'd1, feed_t) : '0;
-    wire signed [DW-1:0] a2 = feeding ? feed_a(mode_latched, 2'd2, feed_t) : '0;
-    wire signed [DW-1:0] a3 = feeding ? feed_a(mode_latched, 2'd3, feed_t) : '0;
-    wire signed [DW-1:0] b0 = feeding ? feed_b(mode_latched, 2'd0, feed_t) : '0;
-    wire signed [DW-1:0] b1 = feeding ? feed_b(mode_latched, 2'd1, feed_t) : '0;
-    wire signed [DW-1:0] b2 = feeding ? feed_b(mode_latched, 2'd2, feed_t) : '0;
-    wire signed [DW-1:0] b3 = feeding ? feed_b(mode_latched, 2'd3, feed_t) : '0;
+    wire signed [DW-1:0] a0 = feeding ? feed_a(mode_latched, 0, feed_t_ext) : '0;
+    wire signed [DW-1:0] a1 = feeding ? feed_a(mode_latched, 1, feed_t_ext) : '0;
+    wire signed [DW-1:0] a2 = feeding ? feed_a(mode_latched, 2, feed_t_ext) : '0;
+    wire signed [DW-1:0] a3 = feeding ? feed_a(mode_latched, 3, feed_t_ext) : '0;
+    wire signed [DW-1:0] b0 = feeding ? feed_b(mode_latched, 0, feed_t_ext) : '0;
+    wire signed [DW-1:0] b1 = feeding ? feed_b(mode_latched, 1, feed_t_ext) : '0;
+    wire signed [DW-1:0] b2 = feeding ? feed_b(mode_latched, 2, feed_t_ext) : '0;
+    wire signed [DW-1:0] b3 = feeding ? feed_b(mode_latched, 3, feed_t_ext) : '0;
+    wire signed [DW-1:0] b4 = feeding ? feed_b(mode_latched, 4, feed_t_ext) : '0;
+    wire signed [DW-1:0] b5 = feeding ? feed_b(mode_latched, 5, feed_t_ext) : '0;
+    wire signed [DW-1:0] b6 = feeding ? feed_b(mode_latched, 6, feed_t_ext) : '0;
+    wire signed [DW-1:0] b7 = feeding ? feed_b(mode_latched, 7, feed_t_ext) : '0;
 
-    wire signed [N*DW-1:0] a_in_flat = {a3, a2, a1, a0};
-    wire signed [N*DW-1:0] b_in_flat = {b3, b2, b1, b0};
-    wire signed [N*N*CW-1:0] c_out_flat;
+    assign a_in_flat = {a3, a2, a1, a0};
+    assign b_in_flat = {b7, b6, b5, b4, b3, b2, b1, b0};
 
     systolic_array #(
-        .N(N),
+        .ROWS(SLICE_ROWS),
+        .COLS(N),
         .DW(DW),
         .CW(CW)
     ) gpu (
-        .clk(clk),
+        .clk(core_clk),
         .rst(rst),
         .clear(clear),
         .a_in(a_in_flat),
@@ -205,58 +251,46 @@ module tt_um_rv32_vga (
         .c_out(c_out_flat)
     );
 
-    wire signed [CW-1:0] c00 = c_out_flat[( 0*CW) +: CW];
-    wire signed [CW-1:0] c01 = c_out_flat[( 1*CW) +: CW];
-    wire signed [CW-1:0] c02 = c_out_flat[( 2*CW) +: CW];
-    wire signed [CW-1:0] c03 = c_out_flat[( 3*CW) +: CW];
-    wire signed [CW-1:0] c10 = c_out_flat[( 4*CW) +: CW];
-    wire signed [CW-1:0] c11 = c_out_flat[( 5*CW) +: CW];
-    wire signed [CW-1:0] c12 = c_out_flat[( 6*CW) +: CW];
-    wire signed [CW-1:0] c13 = c_out_flat[( 7*CW) +: CW];
-    wire signed [CW-1:0] c20 = c_out_flat[( 8*CW) +: CW];
-    wire signed [CW-1:0] c21 = c_out_flat[( 9*CW) +: CW];
-    wire signed [CW-1:0] c22 = c_out_flat[(10*CW) +: CW];
-    wire signed [CW-1:0] c23 = c_out_flat[(11*CW) +: CW];
-    wire signed [CW-1:0] c30 = c_out_flat[(12*CW) +: CW];
-    wire signed [CW-1:0] c31 = c_out_flat[(13*CW) +: CW];
-    wire signed [CW-1:0] c32 = c_out_flat[(14*CW) +: CW];
-    wire signed [CW-1:0] c33 = c_out_flat[(15*CW) +: CW];
+    wire [2:0] cell_row =
+        (canvas_y <  6'd8) ? 3'd0 :
+        (canvas_y < 6'd15) ? 3'd1 :
+        (canvas_y < 6'd23) ? 3'd2 :
+        (canvas_y < 6'd30) ? 3'd3 :
+        (canvas_y < 6'd38) ? 3'd4 :
+        (canvas_y < 6'd45) ? 3'd5 :
+        (canvas_y < 6'd53) ? 3'd6 : 3'd7;
 
-    wire [1:0] cell_row = (canvas_y < 6'd15) ? 2'd0 :
-                          (canvas_y < 6'd30) ? 2'd1 :
-                          (canvas_y < 6'd45) ? 2'd2 : 2'd3;
-    wire [1:0] cell_col = (canvas_x < 7'd20) ? 2'd0 :
-                          (canvas_x < 7'd40) ? 2'd1 :
-                          (canvas_x < 7'd60) ? 2'd2 : 2'd3;
+    wire [2:0] cell_col =
+        (canvas_x <  7'd10) ? 3'd0 :
+        (canvas_x <  7'd20) ? 3'd1 :
+        (canvas_x <  7'd30) ? 3'd2 :
+        (canvas_x <  7'd40) ? 3'd3 :
+        (canvas_x <  7'd50) ? 3'd4 :
+        (canvas_x <  7'd60) ? 3'd5 :
+        (canvas_x <  7'd70) ? 3'd6 : 3'd7;
 
-    reg signed [CW-1:0] selected_value;
+    reg signed [N*CW-1:0] selected_row;
     always @(*) begin
-        case ({cell_row, cell_col})
-            4'h0: selected_value = c00;
-            4'h1: selected_value = c01;
-            4'h2: selected_value = c02;
-            4'h3: selected_value = c03;
-            4'h4: selected_value = c10;
-            4'h5: selected_value = c11;
-            4'h6: selected_value = c12;
-            4'h7: selected_value = c13;
-            4'h8: selected_value = c20;
-            4'h9: selected_value = c21;
-            4'hA: selected_value = c22;
-            4'hB: selected_value = c23;
-            4'hC: selected_value = c30;
-            4'hD: selected_value = c31;
-            4'hE: selected_value = c32;
-            default: selected_value = c33;
+        case (cell_row)
+            3'd0: selected_row = row_store0;
+            3'd1: selected_row = row_store1;
+            3'd2: selected_row = row_store2;
+            3'd3: selected_row = row_store3;
+            3'd4: selected_row = row_store4;
+            3'd5: selected_row = row_store5;
+            3'd6: selected_row = row_store6;
+            default: selected_row = row_store7;
         endcase
     end
 
+    wire signed [CW-1:0] selected_value = selected_row[(cell_col*CW) +: CW];
+
     function [5:0] pack_rgb;
-        input [1:0] r;
+        input [1:0] red;
         input [1:0] g;
         input [1:0] b;
         begin
-            pack_rgb = {r[1], g[1], b[1], r[0], g[0], b[0]};
+            pack_rgb = {red[1], g[1], b[1], red[0], g[0], b[0]};
         end
     endfunction
 

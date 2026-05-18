@@ -9,14 +9,15 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-This design is a Tiny Tapeout graphics demo built around a small 4x4 ternary systolic array and a VGA generator.
+This design, Systolic Array VGA System, is a Tiny Tapeout graphics demo built around an 8x8 ternary systolic array that is computed in two passes using a 4x8 slice with 32 processing elements, plus a VGA generator.
 
 Main blocks:
 
-- A 4x4 systolic array made of small multiply-accumulate processing elements.
+- A 4x8 systolic slice made of 32 small multiply-accumulate processing elements, reused across two passes to fill an 8x8 result matrix.
 - A tiny control path that feeds hardcoded matrix rows and columns into the array.
+- A clock divider so the project can accept a 50 MHz top-level clock while VGA still runs at an effective 25 MHz pixel rate.
 - A VGA timing generator for 640x480 @ 60 Hz.
-- Direct rendering of the 16 output values as a fullscreen 4x4 heatmap.
+- Direct rendering of the 64 output values as a fullscreen 8x8 heatmap.
 
 The array computes one of several tiny matrix demos selected by `ui_in[1:0]`. Positive outputs are shown in green, negative outputs in red, and zero outputs in blue. VGA output is exposed on the standard Tiny Tapeout PMOD pin mapping.
 

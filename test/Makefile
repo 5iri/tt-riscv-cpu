@@ -1,4 +1,4 @@
-# Makefile — 4x4 systolic-array VGA simulation
+# Makefile — 8x8 systolic-array VGA simulation with 32-PE pipeline
 SIM              ?= icarus
 TOPLEVEL_LANG    ?= verilog
 SRC_DIR           = $(PWD)/../src

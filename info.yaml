@@ -1,11 +1,11 @@
 # Tiny Tapeout project information
 project:
-  title:        "Systolic VGA Visualizer"
+  title:        "Systolic Array VGA System"
   author:       "siriboi"
   discord:      ""
-  description:  "4x4 ternary systolic-array demo with 640x480 VGA output. The array result matrix is rendered directly as a 4x4 fullscreen heatmap."
+  description:  "8x8 ternary systolic-array system rendered through a two-pass 32-PE pipeline, with 640x480 VGA output. The 64-result matrix is shown as a fullscreen 8x8 heatmap."
   language:     "Verilog"
-  clock_hz:     25000000
+  clock_hz:     50000000
 
   # How many tiles your design occupies? A single tile is about 167x108 uM.
   tiles: "2x2"
