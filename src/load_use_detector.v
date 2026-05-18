@@ -1,5 +1,5 @@
 `default_nettype none
-`include "instr_defines.vh"
+`include "include/instr_defines.vh"
 module load_use_detector (
     input  wire [ 4:0] rs1_id,
     input  wire [ 4:0] rs2_id,

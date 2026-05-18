@@ -1,5 +1,5 @@
 `default_nettype none
-`include "instr_defines.vh"
+`include "include/instr_defines.vh"
 module store_load_detector (
     input  wire [ 5:0] load_instr_id,
     input  wire [31:0] load_addr,

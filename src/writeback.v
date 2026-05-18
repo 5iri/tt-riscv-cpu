@@ -1,5 +1,5 @@
 `default_nettype none
-`include "instr_defines.vh"
+`include "include/instr_defines.vh"
 module writeback (
     input  wire        rd_valid_in,
     input  wire [ 4:0] rd_addr_in,

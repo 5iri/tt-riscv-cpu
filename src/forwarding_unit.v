@@ -1,5 +1,5 @@
 `default_nettype none
-`include "instr_defines.vh"
+`include "include/instr_defines.vh"
 module forwarding_unit (
     input  wire [ 4:0] rs1_addr_ex,
     input  wire [ 4:0] rs2_addr_ex,

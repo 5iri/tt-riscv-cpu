@@ -1,5 +1,5 @@
 `default_nettype none
-`include "instr_defines.vh"
+`include "include/instr_defines.vh"
 module decoder (
     input  wire [31:0] instr,
     output wire [ 4:0] rs2,
