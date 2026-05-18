@@ -341,7 +341,7 @@ module tt_um_rv32_vga (
                 line_write_active <= 1'b1;
                 line_write_x      <= 7'd0;
                 line_write_y      <= 6'd0;
-            end else if (line_write_active && (line_write_x == 7'd79)) begin
+            end else if (line_write_active && (line_write_x == 7'd7)) begin
                 line_prime_both   <= 1'b0;
                 line_initialized  <= 1'b1;
                 line_write_active <= 1'b1;
@@ -351,7 +351,7 @@ module tt_um_rv32_vga (
                 line_write_x <= line_write_x + 7'd1;
             end
         end else if (line_write_active) begin
-            if (line_write_x == 7'd79) begin
+            if (line_write_x == 7'd7) begin
                 line_write_active <= 1'b0;
                 line_write_x      <= 7'd0;
             end else begin
@@ -365,7 +365,7 @@ module tt_um_rv32_vga (
     end
 
     wire [2:0] line_cell_row = canvas_to_cell_row(line_write_y);
-    wire [2:0] line_cell_col = canvas_to_cell_col(line_write_x);
+    wire [2:0] line_cell_col = line_write_x[2:0];
     reg signed [N*CW-1:0] line_selected_row;
     always @(*) begin
         case (line_cell_row)
