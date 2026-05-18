@@ -41,4 +41,6 @@ module data_scratchpad (
         end else
             rd_data = 32'b0;
     end
+
+    wire _unused = &{1'b0, addr[31:8], addr[1:0]};
 endmodule

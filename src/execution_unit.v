@@ -19,16 +19,16 @@ module execution_unit (
     output reg         jump_signal,
     output reg  [31:0] jump_addr,
     output reg  [31:0] mem_addr,
-    output reg  [31:0] rs1_value_out,
-    output reg  [31:0] rs2_value_out,
+    output wire [31:0] rs1_value_out,
+    output wire [31:0] rs2_value_out,
     output reg         flush_pipeline
 );
-    localparam NO_FORWARDING    = 2'b00;
     localparam FORWARD_FROM_MEM = 2'b01;
     localparam FORWARD_FROM_WB  = 2'b10;
 
     reg [31:0] rs1_value;
     reg [31:0] rs2_value;
+    wire [31:0] alu_output;
 
     assign rs1_value_out = rs1_value;
     assign rs2_value_out = rs2_value;
@@ -51,8 +51,7 @@ module execution_unit (
         .rs2(rs2_value),
         .imm(imm),
         .instr_id(instr_id),
-        .pc_input(pc_input),
-        .ALUoutput()
+        .ALUoutput(alu_output)
     );
 
     always @(*) begin
@@ -63,8 +62,8 @@ module execution_unit (
         flush_pipeline = 1'b0;
 
         case (opcode)
-            7'b0110011: exec_output = alu_inst.ALUoutput;
-            7'b0010011: exec_output = alu_inst.ALUoutput;
+            7'b0110011: exec_output = alu_output;
+            7'b0010011: exec_output = alu_output;
             7'b0000011: mem_addr    = rs1_value + imm;
             7'b0100011: mem_addr    = rs1_value + imm;
             7'b1100011: begin
@@ -95,4 +94,6 @@ module execution_unit (
             default: ;
         endcase
     end
+
+    wire _unused = &{1'b0, rs1_addr, rs2_addr, rs1_valid, rs2_valid};
 endmodule

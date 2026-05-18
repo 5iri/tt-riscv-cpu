@@ -20,13 +20,13 @@ module vga_sync (
     localparam H_FP     = 16;
     localparam H_SYNC   = 96;
     localparam H_BP     = 48;
-    localparam H_TOTAL  = 800;  // H_ACTIVE + H_FP + H_SYNC + H_BP
+    localparam H_TOTAL  = H_ACTIVE + H_FP + H_SYNC + H_BP;
 
     localparam V_ACTIVE = 480;
     localparam V_FP     = 10;
     localparam V_SYNC   = 2;
     localparam V_BP     = 33;
-    localparam V_TOTAL  = 525;  // V_ACTIVE + V_FP + V_SYNC + V_BP
+    localparam V_TOTAL  = V_ACTIVE + V_FP + V_SYNC + V_BP;
 
     reg [9:0] hcount; // 0..799
     reg [9:0] vcount; // 0..524

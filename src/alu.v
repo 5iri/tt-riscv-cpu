@@ -5,7 +5,6 @@ module alu (
     input wire [31:0] rs2,
     input wire [31:0] imm,
     input wire [ 5:0] instr_id,
-    input wire [31:0] pc_input,
     output reg [31:0] ALUoutput
 );
     always @(*) begin

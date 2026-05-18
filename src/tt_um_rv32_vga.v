@@ -45,6 +45,8 @@ module tt_um_rv32_vga (
 
     // ---- VGA sync ----
     wire hsync, vsync, vga_active, vblank, swap;
+    wire [9:0] vga_px;
+    wire [8:0] vga_py;
     wire [6:0] canvas_x;
     wire [5:0] canvas_y;
 
@@ -52,13 +54,12 @@ module tt_um_rv32_vga (
         .clk(clk), .rst(rst),
         .hsync(hsync), .vsync(vsync),
         .active(vga_active),
-        .px(), .py(),
+        .px(vga_px), .py(vga_py),
         .canvas_x(canvas_x), .canvas_y(canvas_y),
         .vblank(vblank), .swap(swap)
     );
 
     // ---- CPU data bus ----
-    wire [31:0] cpu_pc_out;
     wire [31:0] cpu_wr_data;
     wire        cpu_mem_wr_en;
     wire        cpu_mem_rd_en;
@@ -88,7 +89,6 @@ module tt_um_rv32_vga (
 
     // ---- Data scratchpad ----
     wire [31:0] sram_rd_data;
-    wire        sram_sel = (data_addr[31:8] == 24'h000000);
 
     data_scratchpad sram (
         .clk(clk),
@@ -141,5 +141,5 @@ module tt_um_rv32_vga (
     assign uio_out = {5'b0, spi_mosi, spi_cs_n, spi_sck};
     assign uio_oe  = 8'b00000111;
 
-    wire _unused = &{ui_in, ena};
+    wire _unused = &{ui_in, uio_in[7:4], uio_in[2:0], ena, vga_px, vga_py};
 endmodule

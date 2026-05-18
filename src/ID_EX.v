@@ -28,7 +28,7 @@ module ID_EX (
     output reg  [31:0] rs2_value_out
 );
     always @(posedge clk or posedge rst) begin
-        if (rst || stall) begin
+        if (rst) begin
             rs1_valid_out <= 1'b0;
             rs2_valid_out <= 1'b0;
             rd_valid_out  <= 1'b0;
@@ -38,7 +38,20 @@ module ID_EX (
             rd_addr_out   <= 5'b0;
             opcode_out    <= 7'b0;
             instr_id_out  <= 6'b0;
-            pc_out        <= stall ? pc_in : 32'b0;
+            pc_out        <= 32'b0;
+            rs1_value_out <= 32'b0;
+            rs2_value_out <= 32'b0;
+        end else if (stall) begin
+            rs1_valid_out <= 1'b0;
+            rs2_valid_out <= 1'b0;
+            rd_valid_out  <= 1'b0;
+            imm_out       <= 32'b0;
+            rs1_addr_out  <= 5'b0;
+            rs2_addr_out  <= 5'b0;
+            rd_addr_out   <= 5'b0;
+            opcode_out    <= 7'b0;
+            instr_id_out  <= 6'b0;
+            pc_out        <= pc_in;
             rs1_value_out <= 32'b0;
             rs2_value_out <= 32'b0;
         end else begin

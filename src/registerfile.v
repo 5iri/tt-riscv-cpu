@@ -15,11 +15,6 @@ module registerfile (
     reg [31:0] register_file[31:0];
     integer i;
 
-    initial begin
-        for (i = 0; i < 32; i = i + 1)
-            register_file[i] = 0;
-    end
-
     always @(*) begin
         if (rs1_valid) begin
             if (rs1 == rd && wr_en && rd != 5'b0)

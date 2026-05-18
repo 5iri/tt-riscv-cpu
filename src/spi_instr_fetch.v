@@ -20,7 +20,7 @@ module spi_instr_fetch (
     reg [6:0]  cnt;       // 0..127
     reg        active;
     reg [31:0] addr_latch;
-    reg [31:0] data_sr;
+    reg [30:0] data_sr;
     reg [31:0] instr_reg;
     reg [31:0] instr_pc_reg;
 
@@ -35,7 +35,7 @@ module spi_instr_fetch (
 
     wire [CACHE_BITS-1:0] fill_index = addr_latch[7:2];
     wire [25:0]           fill_tag   = addr_latch[31:6];
-    wire [31:0]           fill_word  = {data_sr[30:0], spi_miso};
+    wire [31:0]           fill_word  = {data_sr, spi_miso};
 
     assign instr    = cache_hit ? cache_word : instr_reg;
     assign instr_pc = cache_hit ? pc : instr_pc_reg;
@@ -51,7 +51,7 @@ module spi_instr_fetch (
             spi_mosi  <= 1'b0;
             instr_reg <= 32'h00000013; // NOP
             instr_pc_reg <= 32'b0;
-            data_sr   <= 32'b0;
+            data_sr   <= 31'b0;
             for (i = 0; i < CACHE_LINES; i = i + 1) begin
                 cache_valid[i] <= 1'b0;
                 cache_tag[i]   <= 26'b0;
@@ -65,7 +65,7 @@ module spi_instr_fetch (
             spi_mosi  <= 1'b0;
             instr_reg <= 32'h00000013;
             instr_pc_reg <= pc;
-            data_sr   <= 32'b0;
+            data_sr   <= 31'b0;
         end else if (!active) begin
             if (!cache_hit) begin
                 active    <= 1'b1;
@@ -76,7 +76,7 @@ module spi_instr_fetch (
                 spi_mosi  <= pc[31];
                 instr_reg <= 32'h00000013;
                 instr_pc_reg <= pc;
-                data_sr   <= 32'b0;
+                data_sr   <= 31'b0;
             end
         end else begin
             spi_sck <= cnt[0]; // SCK = cnt LSB: 0,1,0,1,...
@@ -88,7 +88,7 @@ module spi_instr_fetch (
             end else begin
                 // Data phase (cnt 64..127 = 32 SCK cycles = 32 data bits)
                 if (cnt[0])
-                    data_sr <= {data_sr[30:0], spi_miso};
+                    data_sr <= {data_sr[29:0], spi_miso};
             end
 
             if (cnt == 7'd127) begin

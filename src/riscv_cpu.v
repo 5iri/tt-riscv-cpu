@@ -162,6 +162,8 @@ module riscv_cpu (
     );
 
     // ---- EX/MEM ----
+    wire [ 4:0] ex_mem_rs1_addr_unused;
+    wire [ 4:0] ex_mem_rs2_addr_unused;
     wire [31:0] ex_mem_rs1_value, ex_mem_rs2_value;
     wire [31:0] ex_mem_pc;
     wire [31:0] ex_mem_mem_addr;
@@ -177,7 +179,7 @@ module riscv_cpu (
         .exec_output_in(ex_exec_output),
         .jump_signal_in(jump_signal), .jump_addr_in(jump_addr),
         .instr_id_in(id_ex_instr_id), .rd_valid_in(id_ex_rd_valid),
-        .rs1_addr_out(), .rs2_addr_out(),
+        .rs1_addr_out(ex_mem_rs1_addr_unused), .rs2_addr_out(ex_mem_rs2_addr_unused),
         .rd_addr_out(ex_mem_rd),
         .rs1_value_out(ex_mem_rs1_value), .rs2_value_out(ex_mem_rs2_value),
         .pc_out(ex_mem_pc),
@@ -231,12 +233,19 @@ module riscv_cpu (
     );
 
     // ---- MEM/WB ----
+    wire [ 4:0] mem_wb_rs1_addr_unused;
+    wire [ 4:0] mem_wb_rs2_addr_unused;
+    wire [31:0] mem_wb_rs1_value_unused;
+    wire [31:0] mem_wb_rs2_value_unused;
+    wire [31:0] mem_wb_pc_unused;
+    wire        mem_wb_jump_signal_unused;
+    wire [31:0] mem_wb_jump_addr_unused;
     wire [31:0] mem_wb_exec_output;
     wire [31:0] mem_wb_mem_data;
 
     MEM_WB mem_wb_inst (
         .clk(clk), .rst(rst),
-        .rs1_addr_in(), .rs2_addr_in(),
+        .rs1_addr_in(5'b0), .rs2_addr_in(5'b0),
         .rd_addr_in(ex_mem_rd),
         .rs1_value_in(ex_mem_rs1_value), .rs2_value_in(ex_mem_rs2_value),
         .pc_in(ex_mem_pc),
@@ -247,19 +256,17 @@ module riscv_cpu (
         .mem_data_in(module_read_data_in),
         .store_load_hazard(store_load_hazard),
         .store_data(forwarded_store_data),
-        .rs1_addr_out(), .rs2_addr_out(),
+        .rs1_addr_out(mem_wb_rs1_addr_unused), .rs2_addr_out(mem_wb_rs2_addr_unused),
         .rd_addr_out(mem_wb_rd),
-        .rs1_value_out(), .rs2_value_out(),
-        .pc_out(), .mem_addr_out(mem_wb_mem_addr),
+        .rs1_value_out(mem_wb_rs1_value_unused), .rs2_value_out(mem_wb_rs2_value_unused),
+        .pc_out(mem_wb_pc_unused), .mem_addr_out(mem_wb_mem_addr),
         .exec_output_out(mem_wb_exec_output),
-        .jump_signal_out(), .jump_addr_out(),
+        .jump_signal_out(mem_wb_jump_signal_unused), .jump_addr_out(mem_wb_jump_addr_unused),
         .instr_id_out(mem_wb_instr_id), .rd_valid_out(mem_wb_rd_valid),
         .mem_data_out(mem_wb_mem_data)
     );
 
     // ---- Writeback ----
-    wire [31:0] wb_rd_addr_wire;
-
     writeback wb_inst (
         .rd_valid_in(mem_wb_rd_valid),
         .rd_addr_in(mem_wb_rd),
@@ -274,5 +281,10 @@ module riscv_cpu (
     assign rf_rd_value  = wb_rd_value;
     assign rf_wr_en     = wb_wr_en;
     assign fetch_redirect = jump_signal;
+
+    wire _unused = &{1'b0, ex_mem_rs1_addr_unused, ex_mem_rs2_addr_unused,
+                     mem_wb_rs1_addr_unused, mem_wb_rs2_addr_unused,
+                     mem_wb_rs1_value_unused, mem_wb_rs2_value_unused,
+                     mem_wb_pc_unused, mem_wb_jump_signal_unused, mem_wb_jump_addr_unused};
 
 endmodule

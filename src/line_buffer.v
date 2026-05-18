@@ -31,7 +31,6 @@ module line_buffer (
             buf0[j] = 6'b0;
             buf1[j] = 6'b0;
         end
-        vga_buf = 0;
     end
 
     // VGA reads vga_buf

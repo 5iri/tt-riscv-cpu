@@ -6,9 +6,9 @@ module pc (
     input  wire [31:0] jump,
     output wire [31:0] out
 );
-    reg [31:0] next_pc = 32'd0;
+    reg [31:0] next_pc;
 
-    always @(posedge clk) begin
+    always @(posedge clk or posedge rst) begin
         if (rst)
             next_pc <= 32'b0;
         else if (j_signal)
