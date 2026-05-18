@@ -1,0 +1,55 @@
+# Tiny Tapeout project information
+project:
+  title:        "Stochastic DP Systolic Array VGA Visualizer"
+  author:       "siriboi"
+  discord:      ""
+  description:  "Tiny Tapeout starter repo for a systolic-array approximate string-distance accelerator with planned VGA visualization."
+  language:     "Verilog"
+  clock_hz:     25000000
+
+  # How many tiles your design occupies? A single tile is about 167x108 uM.
+  tiles: "2x2"
+
+  # Your top module name must start with "tt_um_". Make it unique by including your github username:
+  top_module:  "tt_um_siriboi_stochastic_dp"
+
+  # List your project's source files here.
+  # Source files must be in ./src and you must list each source file separately, one per line.
+  # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
+  source_files:
+    - "tt_um_siriboi_stochastic_dp.v"
+
+# The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
+pinout:
+  # Inputs
+  ui[0]: "input_0"
+  ui[1]: "input_1"
+  ui[2]: "input_2"
+  ui[3]: "input_3"
+  ui[4]: "input_4"
+  ui[5]: "input_5"
+  ui[6]: "input_6"
+  ui[7]: "input_7"
+
+  # Outputs
+  uo[0]: "output_0"
+  uo[1]: "output_1"
+  uo[2]: "output_2"
+  uo[3]: "output_3"
+  uo[4]: "output_4"
+  uo[5]: "output_5"
+  uo[6]: "output_6"
+  uo[7]: "output_7"
+
+  # Bidirectional pins
+  uio[0]: ""
+  uio[1]: ""
+  uio[2]: ""
+  uio[3]: ""
+  uio[4]: ""
+  uio[5]: ""
+  uio[6]: ""
+  uio[7]: ""
+
+# Do not change!
+yaml_version: 6
