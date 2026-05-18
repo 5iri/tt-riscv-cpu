@@ -9,45 +9,39 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-This design is a Tiny Tapeout SoC-style graphics demo built around a small RV32I CPU and a VGA generator.
+This design is a Tiny Tapeout graphics demo built around a small 4x4 ternary systolic array and a VGA generator.
 
 Main blocks:
 
-- A 5-stage RV32I CPU core.
-- An SPI instruction fetch engine that reads 32-bit instructions from an external controller.
-- A small direct-mapped instruction cache in front of the SPI fetch path.
+- A 4x4 systolic array made of small multiply-accumulate processing elements.
+- A tiny control path that feeds hardcoded matrix rows and columns into the array.
 - A VGA timing generator for 640x480 @ 60 Hz.
-- A double-buffered 80x60 logical canvas with 6-bit color output.
-- A small on-chip scratchpad RAM for loads and stores.
+- Direct rendering of the 16 output values as a fullscreen 4x4 heatmap.
 
-The CPU fetches code over SPI and can write pixel values into the line buffer memory-mapped display path. VGA output is exposed on the standard Tiny Tapeout PMOD pin mapping.
+The array computes one of several tiny matrix demos selected by `ui_in[1:0]`. Positive outputs are shown in green, negative outputs in red, and zero outputs in blue. VGA output is exposed on the standard Tiny Tapeout PMOD pin mapping.
 
 ## How to test
 
-Run the cocotb regression suite:
+Run the reduced RTL checks:
 
 ```sh
-cd test
-PATH=/Users/siriboi/github/tt-stochastic-systolic-vga/.venv312/bin:$PATH make -B SIM=icarus
+iverilog -g2012 -Isrc -s tt_um_rv32_vga src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
+verilator --lint-only -Wall src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
 ```
 
-The tests currently check:
+The cocotb tests are intended to check:
 
 - VGA sync pulse timing
-- CPU arithmetic execution
-- CPU load/store behavior
-- Taken branch control flow
-- CPU writes reaching VGA-visible line-buffer output
+- Mode 0 systolic-array output values
+- Mode-switch recomputation behavior
 
 ## External hardware
 
-An external SPI instruction source is required in real hardware.
+No external hardware is required beyond the VGA PMOD connection.
 
-Current SPI usage:
+Current user input usage:
 
-- `uio[0]`: SPI `SCK` output
-- `uio[1]`: SPI `CS_N` output
-- `uio[2]`: SPI `MOSI` output
-- `uio[3]`: SPI `MISO` input
+- `ui_in[0]`: demo select bit 0
+- `ui_in[1]`: demo select bit 1
 
-The cocotb testbench emulates this instruction source directly.
+All `uio` pins are unused in the current design.

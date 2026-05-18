@@ -1,29 +1,13 @@
-# Makefile — RV32I + VGA simulation
+# Makefile — 4x4 systolic-array VGA simulation
 SIM              ?= icarus
 TOPLEVEL_LANG    ?= verilog
 SRC_DIR           = $(PWD)/../src
 
 PROJECT_SOURCES = \
 	tt_um_rv32_vga.v \
-	riscv_cpu.v \
-	execution_unit.v \
-	decoder.v \
-	alu.v \
-	registerfile.v \
-	pc.v \
-	IF_ID.v \
-	ID_EX.v \
-	EX_MEM.v \
-	MEM_WB.v \
-	forwarding_unit.v \
-	load_use_detector.v \
-	store_load_detector.v \
-	memory_unit.v \
-	writeback.v \
-	spi_instr_fetch.v \
-	data_scratchpad.v \
-	vga_sync.v \
-	line_buffer.v
+	systolic_array.v \
+	pe.v \
+	vga_sync.v
 
 ifneq ($(GATES),yes)
 

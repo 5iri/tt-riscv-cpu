@@ -1,22 +1,22 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# RV32I VGA Visualizer
+# Systolic VGA Visualizer
 
-Tiny Tapeout project for a small RV32I CPU with SPI instruction fetch and VGA output.
+Tiny Tapeout project for a small 4x4 ternary systolic array with VGA output.
 
 - Project datasheet source: [docs/info.md](docs/info.md)
 - Project metadata: [info.yaml](info.yaml)
 
 ## Current state
 
-This repo contains a working design:
+This repo now contains a much smaller design aimed at fitting a 4-tile Tiny Tapeout budget:
 
 - `tt_um_rv32_vga` is the Tiny Tapeout top module.
-- The CPU is a simple 5-stage RV32I core.
-- Instructions are fetched over SPI from an external source.
+- The compute block is a 4x4 ternary systolic array.
 - VGA output is 640x480 @ 60 Hz with an 80x60 logical canvas and 6-bit color.
-- The instruction frontend includes a small direct-mapped cache to reduce SPI stalls.
-- The cocotb suite covers VGA timing, arithmetic, load/store, branches, and line-buffer output.
+- The 16 array outputs are rendered directly as a fullscreen 4x4 heatmap.
+- `ui_in[1:0]` select different hardcoded matrix demos.
+- The cocotb suite covers VGA timing and array result generation.
 
 ## How to test
 
@@ -28,6 +28,5 @@ PATH=/Users/siriboi/github/tt-stochastic-systolic-vga/.venv312/bin:$PATH make -B
 ## External interface
 
 - `uo_out[7:0]` carries the Tiny Tapeout VGA PMOD pinout.
-- `uio[0:3]` implement the SPI instruction interface:
-  `SCK`, `CS_N`, `MOSI`, `MISO`.
-- `ui_in[7:0]` are currently unused.
+- `ui_in[1:0]` select the matrix demo mode.
+- `uio[7:0]` are currently unused.
