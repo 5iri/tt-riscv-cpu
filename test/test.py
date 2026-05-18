@@ -103,8 +103,8 @@ def has_internal_video_handles(dut):
 async def wait_for_display_ready(dut, expected_mode, timeout_cycles=FRAME_TOP_CYCLES * 3):
     if not has_internal_video_handles(dut):
         # Gate-level netlists do not preserve these internal signal names.
-        # Wait a few complete frames for recompute + line-buffer priming.
-        await ClockCycles(dut.clk, FRAME_TOP_CYCLES * 4)
+        # Two frames comfortably covers recompute + line-buffer priming.
+        await ClockCycles(dut.clk, FRAME_TOP_CYCLES * 2)
         return
 
     for _ in range(timeout_cycles):
@@ -175,7 +175,29 @@ async def wait_for_canvas_position(dut, target_x, target_y, timeout_cycles=FRAME
     assert False, f"never reached canvas position ({target_x}, {target_y})"
 
 
+async def sample_matrix_gl(dut):
+    observed = []
+    current_x = 0
+    current_y = 0
+
+    for py in CELL_CENTER_Y:
+        row_values = []
+        for px in CELL_CENTER_X:
+            delta_pixels = ((py - current_y) * H_TOTAL) + (px - current_x)
+            if delta_pixels > 0:
+                await ClockCycles(dut.clk, delta_pixels * TOP_CLK_PER_PIXEL)
+            row_values.append(uo_color(dut.uo_out))
+            current_x = px
+            current_y = py
+        observed.append(row_values)
+
+    return observed
+
+
 async def sample_matrix(dut):
+    if not has_internal_video_handles(dut):
+        return await sample_matrix_gl(dut)
+
     observed = []
 
     for py in CELL_CENTER_Y:
