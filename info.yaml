@@ -21,6 +21,7 @@ project:
     - "systolic_array.v"
     - "pe.v"
     - "vga_sync.v"
+    - "line_buffer.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 pinout:

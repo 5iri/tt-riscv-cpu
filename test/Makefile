@@ -7,7 +7,8 @@ PROJECT_SOURCES = \
 	tt_um_rv32_vga.v \
 	systolic_array.v \
 	pe.v \
-	vga_sync.v
+	vga_sync.v \
+	line_buffer.v
 
 ifneq ($(GATES),yes)
 

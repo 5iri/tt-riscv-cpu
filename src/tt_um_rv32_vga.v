@@ -28,7 +28,7 @@ module tt_um_rv32_vga (
     wire rst = ~rst_n;
     wire [1:0] mode = ui_in[1:0];
     wire vblank_unused;
-    wire swap_unused;
+    wire swap;
 
     reg clk_div2;
     always @(posedge clk or posedge rst) begin
@@ -52,13 +52,14 @@ module tt_um_rv32_vga (
         .active(vga_active),
         .px(vga_px), .py(vga_py),
         .canvas_x(canvas_x), .canvas_y(canvas_y),
-        .vblank(vblank_unused), .swap(swap_unused)
+        .vblank(vblank_unused), .swap(swap)
     );
 
     reg [1:0] mode_latched;
     reg [4:0] phase;
     reg       restart_pending;
     reg       pass_sel;
+    reg       matrix_ready;
 
     reg signed [N*CW-1:0] row_store0;
     reg signed [N*CW-1:0] row_store1;
@@ -83,6 +84,7 @@ module tt_um_rv32_vga (
             phase           <= 5'd0;
             restart_pending <= 1'b0;
             pass_sel        <= 1'b0;
+            matrix_ready    <= 1'b0;
             row_store0 <= '0;
             row_store1 <= '0;
             row_store2 <= '0;
@@ -97,6 +99,7 @@ module tt_um_rv32_vga (
                 phase           <= 5'd0;
                 restart_pending <= 1'b1;
                 pass_sel        <= 1'b0;
+                matrix_ready    <= 1'b0;
                 row_store0 <= '0;
                 row_store1 <= '0;
                 row_store2 <= '0;
@@ -117,6 +120,7 @@ module tt_um_rv32_vga (
                         row_store5 <= c_out_flat[(1*N*CW) +: (N*CW)];
                         row_store6 <= c_out_flat[(2*N*CW) +: (N*CW)];
                         row_store7 <= c_out_flat[(3*N*CW) +: (N*CW)];
+                        matrix_ready <= 1'b1;
                     end
                 end
 
@@ -199,7 +203,7 @@ module tt_um_rv32_vga (
         integer k;
         begin
             global_row = (pass_sel ? 4 : 0) + local_row;
-            k = t - global_row;
+            k = t - local_row;
             if ((k >= 0) && (k < N))
                 feed_a = a_coeff(sel, global_row, k);
             else
@@ -251,39 +255,33 @@ module tt_um_rv32_vga (
         .c_out(c_out_flat)
     );
 
-    wire [2:0] cell_row =
-        (canvas_y <  6'd8) ? 3'd0 :
-        (canvas_y < 6'd15) ? 3'd1 :
-        (canvas_y < 6'd23) ? 3'd2 :
-        (canvas_y < 6'd30) ? 3'd3 :
-        (canvas_y < 6'd38) ? 3'd4 :
-        (canvas_y < 6'd45) ? 3'd5 :
-        (canvas_y < 6'd53) ? 3'd6 : 3'd7;
+    function [2:0] canvas_to_cell_row;
+        input [5:0] y;
+        begin
+            canvas_to_cell_row =
+                (y <  6'd8) ? 3'd0 :
+                (y < 6'd15) ? 3'd1 :
+                (y < 6'd23) ? 3'd2 :
+                (y < 6'd30) ? 3'd3 :
+                (y < 6'd38) ? 3'd4 :
+                (y < 6'd45) ? 3'd5 :
+                (y < 6'd53) ? 3'd6 : 3'd7;
+        end
+    endfunction
 
-    wire [2:0] cell_col =
-        (canvas_x <  7'd10) ? 3'd0 :
-        (canvas_x <  7'd20) ? 3'd1 :
-        (canvas_x <  7'd30) ? 3'd2 :
-        (canvas_x <  7'd40) ? 3'd3 :
-        (canvas_x <  7'd50) ? 3'd4 :
-        (canvas_x <  7'd60) ? 3'd5 :
-        (canvas_x <  7'd70) ? 3'd6 : 3'd7;
-
-    reg signed [N*CW-1:0] selected_row;
-    always @(*) begin
-        case (cell_row)
-            3'd0: selected_row = row_store0;
-            3'd1: selected_row = row_store1;
-            3'd2: selected_row = row_store2;
-            3'd3: selected_row = row_store3;
-            3'd4: selected_row = row_store4;
-            3'd5: selected_row = row_store5;
-            3'd6: selected_row = row_store6;
-            default: selected_row = row_store7;
-        endcase
-    end
-
-    wire signed [CW-1:0] selected_value = selected_row[(cell_col*CW) +: CW];
+    function [2:0] canvas_to_cell_col;
+        input [6:0] x;
+        begin
+            canvas_to_cell_col =
+                (x <  7'd10) ? 3'd0 :
+                (x <  7'd20) ? 3'd1 :
+                (x <  7'd30) ? 3'd2 :
+                (x <  7'd40) ? 3'd3 :
+                (x <  7'd50) ? 3'd4 :
+                (x <  7'd60) ? 3'd5 :
+                (x <  7'd70) ? 3'd6 : 3'd7;
+        end
+    endfunction
 
     function [5:0] pack_rgb;
         input [1:0] red;
@@ -318,7 +316,89 @@ module tt_um_rv32_vga (
         end
     endfunction
 
-    wire [5:0] vga_color = vga_active ? heatmap_color(selected_value) : 6'b0;
+    reg        line_prime_both;
+    reg        line_initialized;
+    reg        line_write_active;
+    reg [6:0]  line_write_x;
+    reg [5:0]  line_write_y;
+
+    always @(posedge core_clk or posedge rst) begin
+        if (rst) begin
+            line_prime_both   <= 1'b0;
+            line_initialized  <= 1'b0;
+            line_write_active <= 1'b0;
+            line_write_x     <= 7'd0;
+            line_write_y     <= 6'd0;
+        end else if (!matrix_ready) begin
+            line_prime_both   <= 1'b0;
+            line_initialized  <= 1'b0;
+            line_write_active <= 1'b0;
+            line_write_x      <= 7'd0;
+            line_write_y      <= 6'd0;
+        end else if (!line_initialized) begin
+            if (!line_write_active && swap && (canvas_y == 6'd0)) begin
+                line_prime_both   <= 1'b1;
+                line_write_active <= 1'b1;
+                line_write_x      <= 7'd0;
+                line_write_y      <= 6'd0;
+            end else if (line_write_active && (line_write_x == 7'd79)) begin
+                line_prime_both   <= 1'b0;
+                line_initialized  <= 1'b1;
+                line_write_active <= 1'b1;
+                line_write_x      <= 7'd0;
+                line_write_y      <= 6'd1;
+            end else if (line_write_active) begin
+                line_write_x <= line_write_x + 7'd1;
+            end
+        end else if (line_write_active) begin
+            if (line_write_x == 7'd79) begin
+                line_write_active <= 1'b0;
+                line_write_x      <= 7'd0;
+            end else begin
+                line_write_x <= line_write_x + 7'd1;
+            end
+        end else if (swap) begin
+            line_write_active <= 1'b1;
+            line_write_x      <= 7'd0;
+            line_write_y      <= (canvas_y == 6'd59) ? 6'd0 : (canvas_y + 6'd1);
+        end
+    end
+
+    wire [2:0] line_cell_row = canvas_to_cell_row(line_write_y);
+    wire [2:0] line_cell_col = canvas_to_cell_col(line_write_x);
+    reg signed [N*CW-1:0] line_selected_row;
+    always @(*) begin
+        case (line_cell_row)
+            3'd0: line_selected_row = row_store0;
+            3'd1: line_selected_row = row_store1;
+            3'd2: line_selected_row = row_store2;
+            3'd3: line_selected_row = row_store3;
+            3'd4: line_selected_row = row_store4;
+            3'd5: line_selected_row = row_store5;
+            3'd6: line_selected_row = row_store6;
+            default: line_selected_row = row_store7;
+        endcase
+    end
+    wire signed [CW-1:0] line_selected_value = line_selected_row[(line_cell_col*CW) +: CW];
+    wire [5:0] line_cpu_color = heatmap_color(line_selected_value);
+
+    wire [5:0] line_vga_color;
+    wire [5:0] vga_color = line_initialized ? line_vga_color : 6'b0;
+    wire       line_cpu_buf_sel_unused;
+
+    line_buffer linebuf (
+        .clk(core_clk),
+        .rst(rst),
+        .vga_x(canvas_x),
+        .active(vga_active),
+        .vga_color(line_vga_color),
+        .cpu_x(line_write_x),
+        .cpu_color(line_cpu_color),
+        .cpu_wen(line_write_active),
+        .cpu_fill_both(line_prime_both),
+        .swap(swap),
+        .cpu_buf_sel(line_cpu_buf_sel_unused)
+    );
 
     assign uo_out[0] = vga_color[5];
     assign uo_out[1] = vga_color[4];
@@ -332,5 +412,5 @@ module tt_um_rv32_vga (
     assign uio_out = 8'b0;
     assign uio_oe  = 8'b0;
 
-    wire _unused = &{uio_in, ena, ui_in[7:2], vga_px, vga_py, vblank_unused, swap_unused};
+    wire _unused = &{uio_in, ena, ui_in[7:2], vga_px, vga_py, vblank_unused, line_cpu_buf_sel_unused};
 endmodule

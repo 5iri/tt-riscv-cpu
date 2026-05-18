@@ -16,6 +16,7 @@ module line_buffer (
     input  wire [ 6:0] cpu_x,      // pixel x within line buffer (0..79)
     input  wire [ 5:0] cpu_color,
     input  wire        cpu_wen,
+    input  wire        cpu_fill_both,
 
     // Swap from vga_sync, and status out
     input  wire        swap,
@@ -47,7 +48,10 @@ module line_buffer (
 
     always @(posedge clk) begin
         if (cpu_wen) begin
-            if (!vga_buf) // VGA reads buf0, CPU writes buf1
+            if (cpu_fill_both) begin
+                buf0[cpu_x] <= cpu_color;
+                buf1[cpu_x] <= cpu_color;
+            end else if (!vga_buf) // VGA reads buf0, CPU writes buf1
                 buf1[cpu_x] <= cpu_color;
             else           // VGA reads buf1, CPU writes buf0
                 buf0[cpu_x] <= cpu_color;

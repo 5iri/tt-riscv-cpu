@@ -17,6 +17,7 @@ Main blocks:
 - A tiny control path that feeds hardcoded matrix rows and columns into the array.
 - A clock divider so the project can accept a 50 MHz top-level clock while VGA still runs at an effective 25 MHz pixel rate.
 - A VGA timing generator for 640x480 @ 60 Hz.
+- A double line buffer that scan-converts one 80-pixel logical row at a time.
 - Direct rendering of the 64 output values as a fullscreen 8x8 heatmap.
 
 The array computes one of several tiny matrix demos selected by `ui_in[1:0]`. Positive outputs are shown in green, negative outputs in red, and zero outputs in blue. VGA output is exposed on the standard Tiny Tapeout PMOD pin mapping.

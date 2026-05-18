@@ -4,9 +4,11 @@ from cocotb.triggers import RisingEdge, ClockCycles
 
 N = 8
 H_TOTAL = 800
+V_TOTAL = 525
 CELL_CENTER_X = [5, 15, 25, 35, 45, 55, 65, 75]
 CELL_CENTER_Y = [4, 11, 19, 26, 34, 41, 49, 56]
 TOP_CLK_PER_PIXEL = 2
+FRAME_TOP_CYCLES = H_TOTAL * V_TOTAL * TOP_CLK_PER_PIXEL
 
 
 async def do_reset(dut, ui=0, cycles=5):
@@ -85,18 +87,69 @@ async def wait_until_cycle(dut, current_cycle, target_cycle):
     return target_cycle
 
 
-async def sample_matrix(dut, current_cycle):
+async def wait_for_display_ready(dut, expected_mode, timeout_cycles=FRAME_TOP_CYCLES * 3):
+    for _ in range(timeout_cycles):
+        if (
+            int(dut.user_project.mode_latched.value) == expected_mode
+            and int(dut.user_project.matrix_ready.value)
+            and int(dut.user_project.line_initialized.value)
+        ):
+            return
+        await RisingEdge(dut.clk)
+
+    assert False, "display pipeline never became ready"
+
+
+async def wait_for_frame_origin(dut, timeout_cycles=FRAME_TOP_CYCLES * 2):
+    for _ in range(timeout_cycles):
+        await RisingEdge(dut.clk)
+        if (
+            int(dut.user_project.vga_active.value)
+            and int(dut.user_project.vga_px.value) == 0
+            and int(dut.user_project.vga_py.value) == 0
+        ):
+            return 0
+
+    assert False, "never reached active frame origin"
+
+
+async def wait_for_pin_edge(dut, bit_index, from_level, to_level, timeout_cycles):
+    previous = (int(dut.uo_out.value) >> bit_index) & 1
+
+    for _ in range(timeout_cycles):
+        await RisingEdge(dut.clk)
+        current = (int(dut.uo_out.value) >> bit_index) & 1
+        if previous == from_level and current == to_level:
+            return
+        previous = current
+
+    assert False, f"pin {bit_index} never transitioned {from_level}->{to_level}"
+
+
+async def wait_for_canvas_position(dut, target_x, target_y, timeout_cycles=FRAME_TOP_CYCLES):
+    for _ in range(timeout_cycles):
+        await RisingEdge(dut.clk)
+        if (
+            int(dut.user_project.vga_active.value)
+            and int(dut.user_project.canvas_x.value) == target_x
+            and int(dut.user_project.canvas_y.value) == target_y
+        ):
+            return
+
+    assert False, f"never reached canvas position ({target_x}, {target_y})"
+
+
+async def sample_matrix(dut):
     observed = []
 
     for py in CELL_CENTER_Y:
         row_values = []
         for px in CELL_CENTER_X:
-            target = ((py * H_TOTAL) + px) * TOP_CLK_PER_PIXEL + 1
-            current_cycle = await wait_until_cycle(dut, current_cycle, target)
+            await wait_for_canvas_position(dut, px, py)
             row_values.append(uo_color(dut.uo_out))
         observed.append(row_values)
 
-    return observed, current_cycle
+    return observed
 
 
 @cocotb.test()
@@ -105,12 +158,7 @@ async def test_vga_sync_timing(dut):
     cocotb.start_soon(clock.start())
     await do_reset(dut)
 
-    for _ in range(840 * 530):
-        await RisingEdge(dut.clk)
-        if not ((int(dut.uo_out.value) >> 3) & 1):
-            break
-    else:
-        assert False, "VSYNC never asserted within one frame"
+    await wait_for_pin_edge(dut, bit_index=3, from_level=1, to_level=0, timeout_cycles=FRAME_TOP_CYCLES * 2)
 
     vsync_low = 0
     while True:
@@ -121,10 +169,7 @@ async def test_vga_sync_timing(dut):
 
     assert 3196 <= vsync_low <= 3204, f"VSYNC pulse {vsync_low} clocks"
 
-    for _ in range(1000):
-        await RisingEdge(dut.clk)
-        if not ((int(dut.uo_out.value) >> 7) & 1):
-            break
+    await wait_for_pin_edge(dut, bit_index=7, from_level=1, to_level=0, timeout_cycles=H_TOTAL * TOP_CLK_PER_PIXEL * 2)
 
     hsync_low = 0
     while True:
@@ -141,12 +186,10 @@ async def test_mode0_result(dut):
     clock = Clock(dut.clk, 20, unit="ns")
     cocotb.start_soon(clock.start())
     await do_reset(dut, ui=0)
-    current_cycle = 4
+    await wait_for_display_ready(dut, expected_mode=0)
+    await wait_for_frame_origin(dut)
 
-    await ClockCycles(dut.clk, 80)
-    current_cycle += 80
-
-    observed, _ = await sample_matrix(dut, current_cycle)
+    observed = await sample_matrix(dut)
     expected = expected_matrix(0)
 
     for row in range(N):
@@ -162,15 +205,13 @@ async def test_mode_switch_recomputes(dut):
     clock = Clock(dut.clk, 20, unit="ns")
     cocotb.start_soon(clock.start())
     await do_reset(dut, ui=0)
-    current_cycle = 4
-    await ClockCycles(dut.clk, 80)
-    current_cycle += 80
+    await wait_for_display_ready(dut, expected_mode=0)
 
     dut.ui_in.value = 1
-    await ClockCycles(dut.clk, 80)
-    current_cycle += 80
+    await wait_for_display_ready(dut, expected_mode=1)
+    await wait_for_frame_origin(dut)
 
-    observed, _ = await sample_matrix(dut, current_cycle)
+    observed = await sample_matrix(dut)
     expected = expected_matrix(1)
 
     for row in range(N):
