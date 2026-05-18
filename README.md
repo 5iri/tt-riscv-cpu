@@ -1,24 +1,33 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Stochastic DP Systolic Array VGA Visualizer
+# RV32I VGA Visualizer
 
-Tiny Tapeout starter repository for a systolic-array string-distance accelerator project.
+Tiny Tapeout project for a small RV32I CPU with SPI instruction fetch and VGA output.
 
 - Project datasheet source: [docs/info.md](docs/info.md)
 - Project metadata: [info.yaml](info.yaml)
 
 ## Current state
 
-This repo is intentionally a clean scaffold:
+This repo contains a working design:
 
-- Tiny Tapeout CI workflows are present.
-- `info.yaml` points at a new top module.
-- The HDL is a minimal placeholder that latches `ui_in` onto `uo_out`.
-- The cocotb test is a smoke test only.
+- `tt_um_rv32_vga` is the Tiny Tapeout top module.
+- The CPU is a simple 5-stage RV32I core.
+- Instructions are fetched over SPI from an external source.
+- VGA output is 640x480 @ 60 Hz with an 80x60 logical canvas and 6-bit color.
+- The instruction frontend includes a small direct-mapped cache to reduce SPI stalls.
+- The cocotb suite covers VGA timing, arithmetic, load/store, branches, and line-buffer output.
 
-## Next steps
+## How to test
 
-1. Replace the placeholder top module in `src/tt_um_siriboi_stochastic_dp.v`.
-2. Define the real pinout in `info.yaml`.
-3. Update `docs/info.md` with the final architecture.
-4. Replace the smoke test with design-specific verification.
+```sh
+cd test
+PATH=/Users/siriboi/github/tt-stochastic-systolic-vga/.venv312/bin:$PATH make -B SIM=icarus
+```
+
+## External interface
+
+- `uo_out[7:0]` carries the Tiny Tapeout VGA PMOD pinout.
+- `uio[0:3]` implement the SPI instruction interface:
+  `SCK`, `CS_N`, `MOSI`, `MISO`.
+- `ui_in[7:0]` are currently unused.

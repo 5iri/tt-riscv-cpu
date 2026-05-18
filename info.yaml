@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        "Stochastic DP Systolic Array VGA Visualizer"
+  title:        "RV32I VGA Visualizer"
   author:       "siriboi"
   discord:      ""
-  description:  "Tiny Tapeout starter repo for a systolic-array approximate string-distance accelerator with planned VGA visualization."
+  description:  "RV32I CPU with SPI instruction fetch and 640x480 VGA output. The CPU renders to an 80x60 6-bit-color canvas through a double-buffered line buffer."
   language:     "Verilog"
   clock_hz:     25000000
 
@@ -11,41 +11,60 @@ project:
   tiles: "2x2"
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "tt_um_siriboi_stochastic_dp"
+  top_module:  "tt_um_rv32_vga"
 
   # List your project's source files here.
   # Source files must be in ./src and you must list each source file separately, one per line.
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
-    - "tt_um_siriboi_stochastic_dp.v"
+    - "tt_um_rv32_vga.v"
+    - "riscv_cpu.v"
+    - "execution_unit.v"
+    - "decoder.v"
+    - "alu.v"
+    - "registerfile.v"
+    - "pc.v"
+    - "IF_ID.v"
+    - "ID_EX.v"
+    - "EX_MEM.v"
+    - "MEM_WB.v"
+    - "forwarding_unit.v"
+    - "load_use_detector.v"
+    - "store_load_detector.v"
+    - "memory_unit.v"
+    - "writeback.v"
+    - "spi_instr_fetch.v"
+    - "data_scratchpad.v"
+    - "vga_sync.v"
+    - "line_buffer.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 pinout:
   # Inputs
-  ui[0]: "input_0"
-  ui[1]: "input_1"
-  ui[2]: "input_2"
-  ui[3]: "input_3"
-  ui[4]: "input_4"
-  ui[5]: "input_5"
-  ui[6]: "input_6"
-  ui[7]: "input_7"
+  ui[0]: "Unused"
+  ui[1]: "Unused"
+  ui[2]: "Unused"
+  ui[3]: "Unused"
+  ui[4]: "Unused"
+  ui[5]: "Unused"
+  ui[6]: "Unused"
+  ui[7]: "Unused"
 
   # Outputs
-  uo[0]: "output_0"
-  uo[1]: "output_1"
-  uo[2]: "output_2"
-  uo[3]: "output_3"
-  uo[4]: "output_4"
-  uo[5]: "output_5"
-  uo[6]: "output_6"
-  uo[7]: "output_7"
+  uo[0]: "VGA R1"
+  uo[1]: "VGA G1"
+  uo[2]: "VGA B1"
+  uo[3]: "VGA VSYNC"
+  uo[4]: "VGA R0"
+  uo[5]: "VGA G0"
+  uo[6]: "VGA B0"
+  uo[7]: "VGA HSYNC"
 
   # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
+  uio[0]: "SPI SCK to instruction source"
+  uio[1]: "SPI CS_N to instruction source"
+  uio[2]: "SPI MOSI address/data out"
+  uio[3]: "SPI MISO instruction data in"
   uio[4]: ""
   uio[5]: ""
   uio[6]: ""

@@ -11,7 +11,7 @@
 //   0x10000000-0x4F  line buffer write: addr[6:0]=pixel_x, data[5:0]=color
 //   0x10000100       VGA status (read): {24'b0, canvas_y[5:0], cpu_buf_sel, vblank}
 `default_nettype none
-module tt_um_siriboi_stochastic_dp (
+module tt_um_rv32_vga (
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     input  wire [7:0] uio_in,

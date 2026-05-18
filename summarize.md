@@ -1,39 +1,45 @@
-# Project Summary: tt-stochastic-systolic-vga
+# Project Summary: tt-rv32-vga
 
 ## What it is
-A Tiny Tapeout chip: RV32I CPU + VGA sync generator (80×60 canvas @ 640×480 60Hz, 6-bit color). The CPU fetches instructions over SPI from an RP2040.
+A Tiny Tapeout chip with:
 
----
+- a small RV32I CPU
+- SPI instruction fetch from an external controller
+- a tiny direct-mapped instruction cache
+- VGA sync generation for 640x480 @ 60 Hz
+- an 80x60 logical canvas with 6-bit color
 
-## Test status
-- **VGA sync timing** — PASSES ✓ (VSYNC=1600, HSYNC=96 clocks)
-- **All CPU tests** — FAILING ✗ (x3=0 instead of 15, etc.)
+The current Tiny Tapeout top module is `tt_um_rv32_vga`.
 
----
+## Current verification status
 
-## Root cause (identified, not yet fixed)
-All instructions received by the CPU are **right-shifted by 1 bit** (`received = original >> 1`).
+- VGA sync timing — PASSES
+- CPU arithmetic — PASSES
+- CPU load/store — PASSES
+- CPU branch control flow — PASSES
+- Line buffer to VGA output — PASSES
 
-**Why:** The SPI fetch module (spi_instr_fetch.v) samples MISO for the first data bit (MSB of instruction) at `cnt=65` (first odd count in data phase). The cocotb SPI slave sets MISO too late — after detecting the falling SCK at `cnt=64` — so the deposit may not propagate before the RTL samples at `cnt=65`.
+The cocotb regression suite currently passes end-to-end with:
 
-**Evidence:** `spi_instr=9`, `if_id_instr=0x9` in diagnostics. NOP (0x13) received as 0x09 = 0x13 >> 1. Confirmed for all 6 SPI transactions.
+```sh
+cd test
+PATH=/Users/siriboi/github/tt-stochastic-systolic-vga/.venv312/bin:$PATH make -B SIM=icarus
+```
 
----
+## Architecture notes
 
-## Attempted fix (didn't work)
-Pre-set MISO for bit_31 inside the address phase loop when `bits_received == 32` (at rising SCK `cnt=63`), before waiting for falling SCK at `cnt=64`. The deposit still doesn't propagate in time.
-
----
-
-## What's next
-The real fix likely needs to look at the SPI slave from a different angle — possibly using `FallingEdge` triggers instead of polling, or pre-setting MISO even earlier (during the 31st address bit), or understanding why the cocotb deposit isn't being seen by the RTL despite appearing to have enough time.
-
----
+- Instructions are fetched over SPI on misses.
+- Repeated instruction fetches can hit in the local instruction cache.
+- The CPU can write pixels through a memory-mapped line-buffer path.
+- Scratchpad RAM is used for local loads/stores.
 
 ## Files of interest
+
 | File | Role |
 |------|------|
-| `test/test.py` | cocotb testbench + SPI slave emulator |
-| `src/spi_instr_fetch.v` | SPI master (RTL side); samples MISO on odd `cnt` (65, 67, ..., 127) |
-| `src/tt_um_siriboi_stochastic_dp.v` | Top level; `spi_miso = uio_in[3]` |
-| `src/riscv_cpu.v` | 5-stage pipeline |
+| `src/tt_um_rv32_vga.v` | Top-level integration |
+| `src/riscv_cpu.v` | RV32I pipeline |
+| `src/spi_instr_fetch.v` | SPI fetch + instruction cache |
+| `src/vga_sync.v` | VGA timing |
+| `src/line_buffer.v` | Double-buffered scanline storage |
+| `test/test.py` | cocotb verification and SPI slave model |

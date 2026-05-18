@@ -27,7 +27,7 @@ module tb ();
   wire VGND = 1'b0;
 `endif
 
-  tt_um_siriboi_stochastic_dp user_project (
+  tt_um_rv32_vga user_project (
 
       // Include power ports for the Gate Level test:
 `ifdef GL_TEST

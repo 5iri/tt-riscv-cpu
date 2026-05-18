@@ -4,7 +4,7 @@ TOPLEVEL_LANG    ?= verilog
 SRC_DIR           = $(PWD)/../src
 
 PROJECT_SOURCES = \
-	tt_um_siriboi_stochastic_dp.v \
+	tt_um_rv32_vga.v \
 	riscv_cpu.v \
 	execution_unit.v \
 	decoder.v \
