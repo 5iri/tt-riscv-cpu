@@ -27,8 +27,8 @@ The array computes one of several tiny matrix demos selected by `ui_in[1:0]`. Po
 Run the reduced RTL checks:
 
 ```sh
-iverilog -g2012 -Isrc -s tt_um_rv32_vga src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
-verilator --lint-only -Wall src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
+iverilog -g2012 -Isrc -s tt_um_systolic_vga src/tt_um_systolic_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
+verilator --lint-only -Wall src/tt_um_systolic_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
 ```
 
 The cocotb tests are intended to check:

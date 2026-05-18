@@ -8,7 +8,7 @@ A Tiny Tapeout chip with:
 - an 80x60 logical canvas with 6-bit color
 - direct rendering of the 8x8 output matrix as a fullscreen heatmap
 
-The current Tiny Tapeout top module is `tt_um_rv32_vga`.
+The current Tiny Tapeout top module is `tt_um_systolic_vga`.
 
 ## Current verification status
 
@@ -19,8 +19,8 @@ The current Tiny Tapeout top module is `tt_um_rv32_vga`.
 The reduced RTL source set compiles locally with:
 
 ```sh
-iverilog -g2012 -Isrc -s tt_um_rv32_vga src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
-verilator --lint-only -Wall src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
+iverilog -g2012 -Isrc -s tt_um_systolic_vga src/tt_um_systolic_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
+verilator --lint-only -Wall src/tt_um_systolic_vga.v src/vga_sync.v src/systolic_array.v src/pe.v
 ```
 
 ## Architecture notes
@@ -35,7 +35,7 @@ verilator --lint-only -Wall src/tt_um_rv32_vga.v src/vga_sync.v src/systolic_arr
 
 | File | Role |
 |------|------|
-| `src/tt_um_rv32_vga.v` | Top-level integration |
+| `src/tt_um_systolic_vga.v` | Top-level integration |
 | `src/systolic_array.v` | 4x8 systolic slice used across two passes |
 | `src/pe.v` | Processing element |
 | `src/vga_sync.v` | VGA timing |

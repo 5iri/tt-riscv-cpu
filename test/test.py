@@ -9,6 +9,8 @@ CELL_CENTER_X = [5, 15, 25, 35, 45, 55, 65, 75]
 CELL_CENTER_Y = [4, 11, 19, 26, 34, 41, 49, 56]
 TOP_CLK_PER_PIXEL = 2
 FRAME_TOP_CYCLES = H_TOTAL * V_TOTAL * TOP_CLK_PER_PIXEL
+V_BACK_PORCH_LINES = 33
+LINE_START_FROM_HSYNC_FALL = (H_TOTAL - (640 + 16 + 96)) * TOP_CLK_PER_PIXEL
 
 
 async def do_reset(dut, ui=0, cycles=5):
@@ -87,7 +89,24 @@ async def wait_until_cycle(dut, current_cycle, target_cycle):
     return target_cycle
 
 
+def has_internal_video_handles(dut):
+    try:
+        _ = dut.user_project.mode_latched.value
+        _ = dut.user_project.vga_active.value
+        _ = dut.user_project.vga_px.value
+        _ = dut.user_project.vga_py.value
+        return True
+    except AttributeError:
+        return False
+
+
 async def wait_for_display_ready(dut, expected_mode, timeout_cycles=FRAME_TOP_CYCLES * 3):
+    if not has_internal_video_handles(dut):
+        # Gate-level netlists do not preserve these internal signal names.
+        # Wait a few complete frames for recompute + line-buffer priming.
+        await ClockCycles(dut.clk, FRAME_TOP_CYCLES * 4)
+        return
+
     for _ in range(timeout_cycles):
         if (
             int(dut.user_project.mode_latched.value) == expected_mode
@@ -101,6 +120,19 @@ async def wait_for_display_ready(dut, expected_mode, timeout_cycles=FRAME_TOP_CY
 
 
 async def wait_for_frame_origin(dut, timeout_cycles=FRAME_TOP_CYCLES * 2):
+    if not has_internal_video_handles(dut):
+        await wait_for_pin_edge(dut, bit_index=3, from_level=0, to_level=1, timeout_cycles=FRAME_TOP_CYCLES * 2)
+        for _ in range(V_BACK_PORCH_LINES):
+            await wait_for_pin_edge(
+                dut,
+                bit_index=7,
+                from_level=1,
+                to_level=0,
+                timeout_cycles=H_TOTAL * TOP_CLK_PER_PIXEL * 2
+            )
+        await ClockCycles(dut.clk, LINE_START_FROM_HSYNC_FALL + 1)
+        return 0
+
     for _ in range(timeout_cycles):
         await RisingEdge(dut.clk)
         if (
@@ -127,6 +159,10 @@ async def wait_for_pin_edge(dut, bit_index, from_level, to_level, timeout_cycles
 
 
 async def wait_for_canvas_position(dut, target_x, target_y, timeout_cycles=FRAME_TOP_CYCLES):
+    if not has_internal_video_handles(dut):
+        await ClockCycles(dut.clk, ((target_y * H_TOTAL) + target_x) * TOP_CLK_PER_PIXEL)
+        return
+
     for _ in range(timeout_cycles):
         await RisingEdge(dut.clk)
         if (
