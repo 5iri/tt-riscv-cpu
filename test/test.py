@@ -10,7 +10,7 @@ CELL_CENTER_Y = [4, 11, 19, 26, 34, 41, 49, 56]
 TOP_CLK_PER_PIXEL = 2
 FRAME_TOP_CYCLES = H_TOTAL * V_TOTAL * TOP_CLK_PER_PIXEL
 V_BACK_PORCH_LINES = 33
-LINE_START_FROM_HSYNC_FALL = (H_TOTAL - (640 + 16 + 96)) * TOP_CLK_PER_PIXEL
+LINE_ACTIVE_START_FROM_HSYNC_FALL = (96 + 48) * TOP_CLK_PER_PIXEL
 
 
 async def do_reset(dut, ui=0, cycles=5):
@@ -130,7 +130,7 @@ async def wait_for_frame_origin(dut, timeout_cycles=FRAME_TOP_CYCLES * 2):
                 to_level=0,
                 timeout_cycles=H_TOTAL * TOP_CLK_PER_PIXEL * 2
             )
-        await ClockCycles(dut.clk, LINE_START_FROM_HSYNC_FALL + 1)
+        await ClockCycles(dut.clk, LINE_ACTIVE_START_FROM_HSYNC_FALL + 1)
         return 0
 
     for _ in range(timeout_cycles):
